@@ -30,29 +30,23 @@ class OnsenController extends Controller
 
     public function search(Request $request)
     {
-        $prefecture = $request->input('prefecture');
-        //$keyword = $request->input('keyword') ?? '';
-        //$areaCode = $request->input('areaCode') ?? null;
+        $prefecture = $request->input('prefecture', '');
 
-        $response = Http::get('https://app.rakuten.co.jp/services/api/Travel/SimpleHotelSearch/20170426', [
+        if ($prefecture === '') {
+            return redirect()->route('onsen.index');
+        }
+
+        $response = Http::get('https://app.rakuten.co.jp/services/api/Travel/KeywordHotelSearch/20170426', [
             'format' => 'json',
             'applicationId' => env('RAKUTEN_APP_ID'),
             'affiliateId' => env('RAKUTEN_AFFILIATE_ID'),
-            'latitude' => $latitude,
-            'longitude' => $longitude,
-            'searchRadius' => 5,
-            'hits' => 10,
+            'keyword' => $prefecture . ' 温泉',
+            'hits' => 30,
         ]);
 
-        //$response = Http::get($url, $params);
+        $results = $response->successful() ? ($response->json('hotels') ?? []) : [];
 
-        $data = $response->json();
-
-        $results = $data['hotels'] ?? [];
-
-        
-
-    return view('onsen.results', compact('results', 'prefecture'));
+        return view('onsen.results', compact('results', 'prefecture'));
     }
 
 }
