@@ -37,5 +37,9 @@
     <main class="container">
         @yield('content')
     </main>
+
+    <footer class="container text-center text-muted small py-4 mt-4 border-top">
+        <a href="{{ route('about') }}" class="text-muted">このサイトについて</a>
+    </footer>
 </body>
 </html>

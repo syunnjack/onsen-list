@@ -21,6 +21,7 @@ class SitemapController extends Controller
     {
         $urls = collect([
             ['loc' => route('onsen.index'), 'priority' => '1.0'],
+            ['loc' => route('about'), 'priority' => '0.3'],
         ])->merge(
             collect(self::PREFECTURES)->map(fn ($pref) => [
                 'loc' => route('onsen.search', ['prefecture' => $pref]),

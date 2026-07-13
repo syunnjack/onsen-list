@@ -33,5 +33,14 @@
       </div>
     @endforeach
   </div>
+
+  <section class="mt-5 pt-4 border-top">
+    <h2 class="h5">温泉旅館・日帰り温泉・スーパー銭湯はどう違う？</h2>
+    <p class="text-muted small">
+      「温泉」とひとくちに言っても、宿泊できる温泉旅館、数時間だけ楽しめる日帰り温泉、日常使いのスーパー銭湯では、
+      泉質・料金・滞在時間が大きく異なります。当サイトで探せるのは主に宿泊できる温泉旅館・ホテルです。
+      違いの詳細は<a href="{{ route('about') }}">このサイトについて</a>でまとめています。
+    </p>
+  </section>
 </div>
 @endsection
