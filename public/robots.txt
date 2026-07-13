@@ -1,4 +1,4 @@
 User-agent: *
 Disallow:
 
-Sitemap: https://onsen-list.example.com/sitemap.xml
+Sitemap: https://onsen-search.jp/sitemap.xml
