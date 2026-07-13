@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Review;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -65,7 +66,17 @@ class OnsenController extends Controller
             }));
         });
 
-        return view('onsen.results', compact('results', 'prefecture'));
+        $hotelNos = collect($results)
+            ->map(fn ($item) => $item['hotel'][0]['hotelBasicInfo']['hotelNo'] ?? null)
+            ->filter()
+            ->values();
+
+        $reviews = Review::whereIn('hotel_no', $hotelNos)
+            ->latest()
+            ->get()
+            ->groupBy('hotel_no');
+
+        return view('onsen.results', compact('results', 'prefecture', 'reviews'));
     }
 
 }
