@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
-//use App\Models\Onsen;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class OnsenController extends Controller
@@ -36,15 +37,21 @@ class OnsenController extends Controller
             return redirect()->route('onsen.index');
         }
 
-        $response = Http::get('https://app.rakuten.co.jp/services/api/Travel/KeywordHotelSearch/20170426', [
-            'format' => 'json',
-            'applicationId' => env('RAKUTEN_APP_ID'),
-            'affiliateId' => env('RAKUTEN_AFFILIATE_ID'),
-            'keyword' => $prefecture . ' 温泉',
-            'hits' => 30,
-        ]);
+        $results = Cache::remember("onsen-search:{$prefecture}", now()->addHour(), function () use ($prefecture) {
+            try {
+                $response = Http::timeout(5)->get('https://app.rakuten.co.jp/services/api/Travel/KeywordHotelSearch/20170426', [
+                    'format' => 'json',
+                    'applicationId' => env('RAKUTEN_APP_ID'),
+                    'affiliateId' => env('RAKUTEN_AFFILIATE_ID'),
+                    'keyword' => $prefecture . ' 温泉',
+                    'hits' => 30,
+                ]);
+            } catch (ConnectionException) {
+                return [];
+            }
 
-        $results = $response->successful() ? ($response->json('hotels') ?? []) : [];
+            return $response->successful() ? ($response->json('hotels') ?? []) : [];
+        });
 
         return view('onsen.results', compact('results', 'prefecture'));
     }
