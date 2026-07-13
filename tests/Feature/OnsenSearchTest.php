@@ -116,4 +116,44 @@ class OnsenSearchTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('見つかりませんでした');
     }
+
+    public function test_tag_filter_narrows_results_to_matching_hotels(): void
+    {
+        Http::fake([
+            'openapi.rakuten.co.jp/*' => Http::response([
+                'hotels' => [
+                    [
+                        'hotel' => [
+                            [
+                                'hotelBasicInfo' => [
+                                    'hotelNo' => 1,
+                                    'hotelName' => '貸切風呂の宿',
+                                    'hotelSpecial' => '貸切風呂が自慢です',
+                                    'address1' => '大阪府',
+                                ],
+                            ],
+                        ],
+                    ],
+                    [
+                        'hotel' => [
+                            [
+                                'hotelBasicInfo' => [
+                                    'hotelNo' => 2,
+                                    'hotelName' => 'ふつうの宿',
+                                    'hotelSpecial' => '',
+                                    'address1' => '大阪府',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->get('/search?prefecture=' . urlencode('大阪府') . '&tag=' . urlencode('貸切風呂'));
+
+        $response->assertStatus(200);
+        $response->assertSee('貸切風呂の宿');
+        $response->assertDontSee('ふつうの宿');
+    }
 }

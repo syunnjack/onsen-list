@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', $prefecture . 'の温泉宿一覧 | 全国温泉一覧')
+@section('title', ($tag ? $tag . '｜' : '') . $prefecture . 'の温泉宿一覧 | 全国温泉一覧')
 @section('description', $prefecture . 'にある温泉宿・温泉旅館の一覧です。宿名・住所・写真・予約リンク・実際に泊まった人の口コミをまとめて確認できます。')
 
 @push('structured-data')
@@ -14,6 +14,22 @@
     ],
 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}
 </script>
+@if (!empty($faq))
+<script type="application/ld+json">
+{!! json_encode([
+    '@context' => 'https://schema.org',
+    '@type' => 'FAQPage',
+    'mainEntity' => collect($faq)->map(fn ($qa) => [
+        '@type' => 'Question',
+        'name' => $qa['question'],
+        'acceptedAnswer' => [
+            '@type' => 'Answer',
+            'text' => $qa['answer'],
+        ],
+    ])->all(),
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}
+</script>
+@endif
 @if (!empty($results))
 <script type="application/ld+json">
 {!! json_encode([
@@ -56,14 +72,27 @@
   <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
       <li class="breadcrumb-item"><a href="{{ route('onsen.index') }}">全国温泉一覧</a></li>
-      <li class="breadcrumb-item active" aria-current="page">{{ $prefecture }}</li>
+      <li class="breadcrumb-item active" aria-current="page">{{ $prefecture }}{{ $tag ? '（' . $tag . '）' : '' }}</li>
     </ol>
   </nav>
 
   <h1>{{ $prefecture }}の温泉宿一覧</h1>
 
+  @if(!empty($availableTags))
+    <div class="mb-3">
+      <span class="small text-muted">目的で絞り込む:</span>
+      @foreach($availableTags as $t)
+        <a href="{{ route('onsen.search', ['prefecture' => $prefecture, 'tag' => $t]) }}"
+           class="btn btn-sm {{ $tag === $t ? 'btn-primary' : 'btn-outline-secondary' }} me-1 mb-1">{{ $t }}</a>
+      @endforeach
+      @if($tag !== '')
+        <a href="{{ route('onsen.search', ['prefecture' => $prefecture]) }}" class="btn btn-sm btn-link">絞り込み解除</a>
+      @endif
+    </div>
+  @endif
+
   @if(empty($results))
-    <p>{{ $prefecture }}の温泉宿が見つかりませんでした。他の都道府県もあわせてご確認ください。</p>
+    <p>{{ $prefecture }}の温泉宿{{ $tag ? "（{$tag}）" : '' }}が見つかりませんでした。他の条件もあわせてご確認ください。</p>
     <a href="{{ route('onsen.index') }}" class="btn btn-outline-primary">都道府県一覧に戻る</a>
   @else
     <p class="text-muted">{{ $prefecture }}にある温泉宿・温泉旅館 {{ count($results) }}件を掲載しています。</p>
@@ -71,10 +100,18 @@
       @php
         $hotel = $item['hotel'][0]['hotelBasicInfo'] ?? [];
         $hotelReviews = $reviews->get($hotel['hotelNo'] ?? null, collect());
+        $hotelTags = $tagsByHotelNo[$hotel['hotelNo'] ?? null] ?? [];
       @endphp
       <article class="mb-4 pb-4 border-bottom">
         <h2 class="h5"><a href="{{ $hotel['hotelInformationUrl'] ?? '#' }}" target="_blank" rel="noopener noreferrer">{{ $hotel['hotelName'] ?? '' }}</a></h2>
         <address class="mb-2">{{ $hotel['address1'] ?? '' }}{{ $hotel['address2'] ?? '' }}</address>
+        @if(!empty($hotelTags))
+          <p class="mb-2">
+            @foreach($hotelTags as $t)
+              <span class="badge bg-info text-dark me-1">{{ $t }}</span>
+            @endforeach
+          </p>
+        @endif
         @if(!empty($hotel['hotelImageUrl']))
           <img src="{{ $hotel['hotelImageUrl'] }}" alt="{{ $hotel['hotelName'] ?? $prefecture . 'の温泉宿' }}" width="200" loading="lazy">
         @endif
@@ -135,6 +172,18 @@
         </div>
       </article>
     @endforeach
+
+    @if(!empty($faq))
+      <section class="mt-4 pt-4 border-top">
+        <h2 class="h5">よくある質問</h2>
+        @foreach($faq as $qa)
+          <div class="mb-3">
+            <p class="fw-bold mb-1">Q. {{ $qa['question'] }}</p>
+            <p class="mb-0">A. {{ $qa['answer'] }}</p>
+          </div>
+        @endforeach
+      </section>
+    @endif
   @endif
 </div>
 @endsection

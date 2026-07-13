@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Review;
+use App\Support\HotelTagger;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -66,6 +68,27 @@ class OnsenController extends Controller
             }));
         });
 
+        // 宿名・PR文からタグを抽出し、絞り込み用の候補一覧も作っておく
+        $tagsByHotelNo = [];
+        $availableTags = [];
+        foreach ($results as $item) {
+            $hotel = $item['hotel'][0]['hotelBasicInfo'] ?? [];
+            $tags = HotelTagger::extract($hotel['hotelName'] ?? '', $hotel['hotelSpecial'] ?? '');
+            if (isset($hotel['hotelNo'])) {
+                $tagsByHotelNo[$hotel['hotelNo']] = $tags;
+            }
+            $availableTags = array_unique(array_merge($availableTags, $tags));
+        }
+        sort($availableTags);
+
+        $tag = $request->input('tag', '');
+        if ($tag !== '') {
+            $results = array_values(array_filter($results, function ($item) use ($tag, $tagsByHotelNo) {
+                $hotelNo = $item['hotel'][0]['hotelBasicInfo']['hotelNo'] ?? null;
+                return in_array($tag, $tagsByHotelNo[$hotelNo] ?? [], true);
+            }));
+        }
+
         $hotelNos = collect($results)
             ->map(fn ($item) => $item['hotel'][0]['hotelBasicInfo']['hotelNo'] ?? null)
             ->filter()
@@ -76,7 +99,41 @@ class OnsenController extends Controller
             ->get()
             ->groupBy('hotel_no');
 
-        return view('onsen.results', compact('results', 'prefecture', 'reviews'));
+        $faq = $this->buildFaq($prefecture, $reviews, $tagsByHotelNo);
+
+        return view('onsen.results', compact('results', 'prefecture', 'reviews', 'tagsByHotelNo', 'availableTags', 'tag', 'faq'));
+    }
+
+    private function buildFaq(string $prefecture, Collection $reviews, array $tagsByHotelNo): array
+    {
+        $kashikiriCount = collect($tagsByHotelNo)->filter(fn ($tags) => in_array('貸切風呂', $tags, true))->count();
+
+        $topRated = $reviews->filter(fn ($group) => $group->count() > 0)
+            ->sortByDesc(fn ($group) => $group->avg('rating'))
+            ->first();
+        $topRatedName = $topRated ? $topRated->first()->hotel_name : null;
+
+        $faq = [
+            [
+                'question' => $prefecture . 'に貸切風呂がある温泉宿はありますか？',
+                'answer' => $kashikiriCount > 0
+                    ? "はい、{$prefecture}には貸切風呂を掲載している温泉宿が{$kashikiriCount}件あります。一覧の「貸切風呂」タグで絞り込めます。"
+                    : "現在の掲載データでは、{$prefecture}で貸切風呂を明記している温泉宿は見つかりませんでした。",
+            ],
+            [
+                'question' => $prefecture . 'の温泉宿の口コミは見られますか？',
+                'answer' => '各温泉宿のページで、実際に宿泊・利用した方の口コミ（評価と感想）を確認できます。口コミはどなたでもログイン不要で投稿できます。',
+            ],
+        ];
+
+        if ($topRatedName) {
+            $faq[] = [
+                'question' => $prefecture . 'でおすすめの温泉宿は？',
+                'answer' => "口コミ評価をもとにすると、{$topRatedName}が現在最も高い評価を得ています。ただし好みは人それぞれのため、他の宿の口コミもあわせてご確認ください。",
+            ];
+        }
+
+        return $faq;
     }
 
 }
