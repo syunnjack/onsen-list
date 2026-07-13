@@ -39,18 +39,30 @@ class OnsenController extends Controller
 
         $results = Cache::remember("onsen-search:{$prefecture}", now()->addHour(), function () use ($prefecture) {
             try {
-                $response = Http::timeout(5)->get('https://app.rakuten.co.jp/services/api/Travel/KeywordHotelSearch/20170426', [
-                    'format' => 'json',
-                    'applicationId' => env('RAKUTEN_APP_ID'),
-                    'affiliateId' => env('RAKUTEN_AFFILIATE_ID'),
-                    'keyword' => $prefecture . ' 温泉',
-                    'hits' => 30,
-                ]);
+                $response = Http::timeout(5)
+                    ->withHeaders([
+                        'Referer' => config('app.url'),
+                        'Origin' => config('app.url'),
+                    ])
+                    ->get('https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20170426', [
+                        'format' => 'json',
+                        'applicationId' => env('RAKUTEN_APP_ID'),
+                        'accessKey' => env('RAKUTEN_ACCESS_KEY'),
+                        'affiliateId' => env('RAKUTEN_AFFILIATE_ID'),
+                        'keyword' => $prefecture . ' 温泉',
+                        'hits' => 30,
+                    ]);
             } catch (ConnectionException) {
                 return [];
             }
 
-            return $response->successful() ? ($response->json('hotels') ?? []) : [];
+            $hotels = $response->successful() ? ($response->json('hotels') ?? []) : [];
+
+            // KeywordHotelSearchはキーワードのあいまい一致のため、
+            // 選択された都道府県以外の宿も混ざる。address1で厳密に絞り込む。
+            return array_values(array_filter($hotels, function ($item) use ($prefecture) {
+                return ($item['hotel'][0]['hotelBasicInfo']['address1'] ?? null) === $prefecture;
+            }));
         });
 
         return view('onsen.results', compact('results', 'prefecture'));
